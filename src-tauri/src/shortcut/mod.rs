@@ -11,6 +11,7 @@
 
 mod handler;
 pub mod handy_keys;
+mod right_shift;
 pub mod tauri_impl;
 
 use log::{debug, error, info, warn};

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { ask } from "@tauri-apps/plugin-dialog";
+import { commands } from "@/bindings";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { SettingContainer } from "../../ui/SettingContainer";
 import { Button } from "../../ui/Button";
@@ -34,6 +36,18 @@ export const AboutSettings: React.FC = () => {
       await openUrl("https://handy.computer/donate");
     } catch (error) {
       console.error("Failed to open donate link:", error);
+    }
+  };
+
+  const handleUninstall = async () => {
+    const confirmed = await ask(t("settings.about.uninstall.confirm"), {
+      title: t("settings.about.uninstall.title"),
+      kind: "warning",
+    });
+    if (!confirmed) return;
+    const result = await commands.uninstallApp();
+    if (result.status === "error") {
+      console.error("Uninstall failed:", result.error);
     }
   };
 
@@ -74,6 +88,16 @@ export const AboutSettings: React.FC = () => {
             onClick={() => openUrl("https://github.com/cjpais/Handy")}
           >
             {t("settings.about.sourceCode.button")}
+          </Button>
+        </SettingContainer>
+
+        <SettingContainer
+          title={t("settings.about.uninstall.title")}
+          description={t("settings.about.uninstall.description")}
+          grouped={true}
+        >
+          <Button variant="secondary" size="md" onClick={handleUninstall}>
+            {t("settings.about.uninstall.button")}
           </Button>
         </SettingContainer>
 

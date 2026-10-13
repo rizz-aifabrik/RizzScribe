@@ -453,6 +453,7 @@ pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
     }
 
     app.manage(state);
+    super::right_shift::spawn_guard(app.clone());
     info!("handy-keys shortcuts initialized");
     Ok(())
 }

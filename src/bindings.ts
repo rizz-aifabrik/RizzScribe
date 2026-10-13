@@ -592,6 +592,14 @@ async openLogDir() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async uninstallApp() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("uninstall_app") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async openAppDataDir() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("open_app_data_dir") };

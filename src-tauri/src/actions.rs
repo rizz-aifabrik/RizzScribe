@@ -175,6 +175,18 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         return None;
     }
 
+    // Tell the LLM which names/terms the user cares about so it keeps their
+    // exact spelling instead of "correcting" or translating them.
+    let prompt = if settings.custom_words.is_empty() {
+        prompt
+    } else {
+        format!(
+            "{}\n\nThe speaker uses these names and terms. If the transcript contains something that sounds like one of them, write it exactly as listed, and never translate or alter them: {}.",
+            prompt,
+            settings.custom_words.join(", ")
+        )
+    };
+
     debug!(
         "Starting LLM post-processing with provider '{}' (model: {})",
         provider.id, model

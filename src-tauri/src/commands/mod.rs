@@ -120,6 +120,67 @@ pub fn open_app_data_dir(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Fully uninstall the app (macOS): reset its system permissions, then quit and
+/// have a detached shell delete its saved data and move the .app to the Trash.
+/// The permissions are reset first, while the app still exists.
+#[specta::specta]
+#[tauri::command]
+pub fn uninstall_app(app: AppHandle) -> Result<(), String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        Err("Uninstall is only supported on macOS".to_string())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::{Command, Stdio};
+
+        let bundle_id = app.config().identifier.clone();
+
+        // .../RizzScribe.app/Contents/MacOS/<binary> -> .../RizzScribe.app
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let app_bundle = exe
+            .ancestors()
+            .nth(3)
+            .filter(|p| p.extension().is_some_and(|ext| ext == "app"))
+            .ok_or("Uninstall only works from an installed .app")?
+            .to_path_buf();
+
+        // 1. Remove Microphone / Accessibility / Input Monitoring grants.
+        let status = Command::new("/usr/bin/tccutil")
+            .args(["reset", "All", &bundle_id])
+            .status()
+            .map_err(|e| format!("Failed to reset permissions: {}", e))?;
+        if !status.success() {
+            return Err("Failed to reset permissions".to_string());
+        }
+
+        // 2. After this process exits: delete saved data, then trash the app.
+        let home = std::env::var("HOME").map_err(|e| e.to_string())?;
+        Command::new("/bin/sh")
+            .arg("-c")
+            .arg(
+                r#"while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
+rm -rf "$HOME/Library/Application Support/$2" "$HOME/Library/Caches/$2"        "$HOME/Library/Preferences/$2.plist" "$HOME/Library/WebKit/$2"        "$HOME/Library/Logs/$2" "$HOME/Library/Saved Application State/$2.savedState"
+mv "$3" "$HOME/.Trash/$(basename "$3" .app) $(date +%H%M%S).app""#,
+            )
+            .arg("sh")
+            .arg(std::process::id().to_string())
+            .arg(&bundle_id)
+            .arg(&app_bundle)
+            .env("HOME", home)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("Failed to start cleanup: {}", e))?;
+
+        app.exit(0);
+        Ok(())
+    }
+}
+
 /// Check if Apple Intelligence is available on this device.
 /// Called by the frontend when the user selects Apple Intelligence provider.
 #[specta::specta]
